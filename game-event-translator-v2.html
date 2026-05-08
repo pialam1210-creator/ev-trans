@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Event Translator v2 - Improved</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --color-bg: #ffffff;
+      --color-bg-secondary: #f5f5f5;
+      --color-text: #333333;
+      --color-text-secondary: #666666;
+      --color-border: #e0e0e0;
+      --color-success: #10b981;
+      --color-error: #ef4444;
+      --color-info: #3b82f6;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-bg: #1f2937;
+        --color-bg-secondary: #111827;
+        --color-text: #f3f4f6;
+        --color-text-secondary: #d1d5db;
+        --color-border: #374151;
+      }
+    }
+
+    body {
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: 1.5rem;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    .header p {
+      color: var(--color-text-secondary);
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: var(--color-success);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    .error-box, .success-box, .info-box {
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 1.5rem;
+      font-size: 14px;
+      display: none;
+    }
+
+    .error-box {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid #ef4444;
+      color: #dc2626;
+    }
+
+    .error-box.show {
+      display: block;
+    }
+
+    .success-box {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid #10b981;
+      color: #059669;
+    }
+
+    .success-box.show {
+      display: block;
+    }
+
+    .info-box {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid #3b82f6;
+      color: #1e40af;
+    }
+
+    .upload-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 2rem;
+    }
+
+    .upload-card {
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+
+    .upload-card label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      color: var(--color-text);
+    }
+
+    .upload-card input[type='file'] {
+      display: block;
+      width: 100%;
+      font-size: 13px;
+      padding: 8px;
+      margin-bottom: 8px;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--color-text);
+    }
+
+    .upload-card input[type='file']:hover {
+      border-color: var(--color-info);
+    }
+
+    .upload-card select {
+      display: block;
+      width: 100%;
+      font-size: 13px;
+      padding: 8px;
+      margin-bottom: 8px;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      color: var(--color-text);
+      cursor: pointer;
+    }
+
+    .status-text {
+      font-size: 12px;
+      color: var(--color-success);
+      margin-top: 8px;
+    }
+
+    .format-hint {
+      font-size: 11px;
+      color: var(--color-text-secondary);
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    .action-buttons {
+      margin-bottom: 2rem;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 15px;
+      font-weight: 500;
+      background: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--color-text);
+      transition: all 0.2s;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--color-bg-secondary);
+      border-color: var(--color-info);
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      display: inline-block;
+      animation: spin 1s linear infinite;
+      margin-right: 6px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .results-section {
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .results-header {
+      background: var(--color-bg-secondary);
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .results-header h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--color-text);
+    }
+
+    .results-content {
+      max-height: 600px;
+      overflow-y: auto;
+      padding: 1rem;
+    }
+
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .results-table thead tr {
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .results-table th {
+      text-align: left;
+      padding: 12px 8px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      background: var(--color-bg-secondary);
+      position: sticky;
+      top: 0;
+    }
+
+    .results-table td {
+      padding: 12px 8px;
+      border-bottom: 1px solid var(--color-border);
+      color: var(--color-text);
+    }
+
+    .results-table td.col-num {
+      color: var(--color-text-secondary);
+      width: 40px;
+    }
+
+    .results-table td.col-source,
+    .results-table td.col-translation {
+      max-width: 250px;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .info-section {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid #3b82f6;
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #1e40af;
+    }
+
+    .info-section strong {
+      font-weight: 600;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .glossary-preview {
+      margin-top: 1rem;
+      padding: 12px;
+      background: var(--color-bg-secondary);
+      border-radius: 4px;
+      font-size: 12px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .glossary-preview p {
+      margin: 4px 0;
+      color: var(--color-text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🚀 Game Event Translator <span class="badge">v2 Improved</span></h1>
+      <p>Chinese → Vietnamese localization (XLSX + CSV support, multi-sheet, UTF-8 fix)</p>
+    </div>
+
+    <!-- Error Box -->
+    <div id="errorBox" class="error-box"></div>
+
+    <!-- Success Box -->
+    <div id="successBox" class="success-box"></div>
+
+    <!-- Upload Section -->
+    <div class="upload-grid">
+      <!-- Glossary Upload -->
+      <div class="upload-card">
+        <label for="glossaryFile">📖 Glossary (XLSX/CSV)</label>
+        <input type="file" id="glossaryFile" accept=".xlsx,.xls,.csv" />
+        <div class="format-hint">Format: Col1=ZH, Col2=VI, Col3=Notes</div>
+        <div id="glossaryStatus"></div>
+        <div id="glossaryPreview" class="glossary-preview hidden"></div>
+      </div>
+
+      <!-- Event Content Upload -->
+      <div class="upload-card">
+        <label for="eventFile">📄 Event Content (XLSX/CSV)</label>
+        <input type="file" id="eventFile" accept=".xlsx,.xls,.csv" />
+        <div class="format-hint">Format: Chinese text (one per row)</div>
+        <div id="eventStatus"></div>
+        <div id="sheetSelector" class="hidden" style="margin-top: 8px;">
+          <label style="font-size: 12px; color: var(--color-text-secondary);">Select sheet:</label>
+          <select id="eventSheetSelect" style="margin-top: 4px;"></select>
+        </div>
+      </div>
+
+      <!-- Previous Translations Upload -->
+      <div class="upload-card">
+        <label for="prevFile">🕐 Previous Translations (Optional)</label>
+        <input type="file" id="prevFile" accept=".xlsx,.xls,.csv" />
+        <div class="format-hint">Format: Col1=Source, Col2=Translation</div>
+        <div id="prevStatus"></div>
+      </div>
+    </div>
+
+    <!-- API Key Setup -->
+    <div class="info-section" style="margin-bottom: 2rem;">
+      <strong>⚠️ API Key Setup Required (One-time)</strong><br/>
+      <small style="color: #1e40af;">
+        This tool requires a backend proxy to safely handle API keys. For now:<br/>
+        1. Save your API key locally (secure location)<br/>
+        2. Or: Deploy with backend support (see docs)<br/>
+        3. Contact admin for hosted version with pre-configured API access
+      </small>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <button id="translateBtn" disabled>
+        🤖 Start Translation
+      </button>
+      <button id="downloadBtn" disabled>
+        ⬇️ Download Results (CSV)
+      </button>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultsSection" class="results-section hidden">
+      <div class="results-header">
+        <h2>✓ Translation Results (<span id="resultCount">0</span> items)</h2>
+      </div>
+      <div class="results-content">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th style="width: 40px">#</th>
+              <th>Source (ZH)</th>
+              <th>Vietnamese</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Info Section -->
+    <div class="info-section">
+      <strong>✨ What's New in v2:</strong><br/>
+      ✅ XLSX + CSV support | ✅ Multi-sheet selection | ✅ UTF-8 encoding fix | 
+      ✅ Better font handling | ⚠️ API Key: Server-side proxy recommended
+    </div>
+  </div>
+
+  <script>
+    let glossaryData = null;
+    let eventData = null;
+    let prevData = null;
+    let translationResults = null;
+    let eventSheets = [];
+    let selectedEventSheet = 0;
+
+    // ==================== FILE PARSING ====================
+    function parseFile(file) {
+      return new Promise((resolve, reject) => {
+        if (typeof XLSX === 'undefined') {
+          reject(new Error('XLSX library loading...'));
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            let data = [];
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            if (ext === 'csv') {
+              // Parse CSV with proper encoding
+              const text = new TextDecoder('utf-8').decode(e.target.result);
+              const lines = text.trim().split('\n');
+              data = lines.map(line => {
+                let fields = [];
+                let current = '';
+                let inQuotes = false;
+
+                for (let j = 0; j < line.length; j++) {
+                  const char = line[j];
+                  if (char === '"') {
+                    inQuotes = !inQuotes;
+                  } else if (char === ',' && !inQuotes) {
+                    fields.push(current.trim().replace(/^"|"$/g, ''));
+                    current = '';
+                  } else {
+                    current += char;
+                  }
+                }
+                fields.push(current.trim().replace(/^"|"$/g, ''));
+                return fields;
+              }).filter(row => row[0]);
+            } else {
+              // Parse XLSX
+              const workbook = XLSX.read(e.target.result, { type: 'array' });
+              const allData = {
+                sheets: workbook.SheetNames,
+                data: {}
+              };
+
+              workbook.SheetNames.forEach((sheetName) => {
+                const sheet = workbook.Sheets[sheetName];
+                const json = XLSX.utils.sheet_to_json(sheet);
+                allData.data[sheetName] = json.map((row) => {
+                  const values = Object.values(row);
+                  return values.map(v => String(v || ''));
+                });
+              });
+
+              resolve(allData);
+              return;
+            }
+
+            resolve(data);
+          } catch (err) {
+            reject(new Error(`Parse error: ${err.message}`));
+          }
+        };
+
+        reader.onerror = () => reject(new Error('Failed to read file'));
+
+        if (file.name.endsWith('.csv')) {
+          reader.readAsArrayBuffer(file);
+        } else {
+          reader.readAsArrayBuffer(file);
+        }
+      });
+    }
+
+    // ==================== UI HELPERS ====================
+    function showError(msg) {
+      const box = document.getElementById('errorBox');
+      box.textContent = '❌ ' + msg;
+      box.classList.add('show');
+    }
+
+    function hideError() {
+      document.getElementById('errorBox').classList.remove('show');
+    }
+
+    function showSuccess(msg) {
+      const box = document.getElementById('successBox');
+      box.textContent = '✓ ' + msg;
+      box.classList.add('show');
+      setTimeout(() => box.classList.remove('show'), 4000);
+    }
+
+    function updateTranslateBtn() {
+      const btn = document.getElementById('translateBtn');
+      btn.disabled = !eventData;
+    }
+
+    // ==================== FILE UPLOADS ====================
+    document.getElementById('glossaryFile').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        hideError();
+        const result = await parseFile(file);
+        const data = Array.isArray(result) ? result : result.data[result.sheets[0]];
+
+        glossaryData = data;
+        document.getElementById('glossaryStatus').innerHTML =
+          `<span class="status-text">✓ ${data.length} terms loaded</span>`;
+
+        const preview = document.getElementById('glossaryPreview');
+        const previewHTML = data
+          .slice(0, 5)
+          .map((row) => {
+            if (row.length >= 2) {
+              return `<p><strong>${row[0]}</strong> → ${row[1]}</p>`;
+            }
+            return '';
+          })
+          .filter(Boolean)
+          .join('');
+        preview.innerHTML = previewHTML + (data.length > 5 ? '<p>...</p>' : '');
+        preview.classList.remove('hidden');
+
+        updateTranslateBtn();
+      } catch (err) {
+        showError(err.message);
+        e.target.value = '';
+      }
+    });
+
+    document.getElementById('eventFile').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        hideError();
+        const result = await parseFile(file);
+
+        if (Array.isArray(result)) {
+          // CSV
+          eventData = result;
+          document.getElementById('eventStatus').innerHTML =
+            `<span class="status-text">✓ ${result.length} lines loaded</span>`;
+          document.getElementById('sheetSelector').classList.add('hidden');
+        } else {
+          // XLSX with multiple sheets
+          eventSheets = result.sheets;
+          eventData = result.data[result.sheets[0]];
+          selectedEventSheet = 0;
+
+          document.getElementById('eventStatus').innerHTML =
+            `<span class="status-text">✓ ${eventData.length} lines in "${result.sheets[0]}"</span>`;
+
+          // Show sheet selector
+          const selector = document.getElementById('eventSheetSelect');
+          selector.innerHTML = result.sheets
+            .map((sheet, idx) => `<option value="${idx}">${sheet}</option>`)
+            .join('');
+          selector.onchange = (ev) => {
+            selectedEventSheet = parseInt(ev.target.value);
+            eventData = result.data[result.sheets[selectedEventSheet]];
+            document.getElementById('eventStatus').innerHTML =
+              `<span class="status-text">✓ ${eventData.length} lines in "${result.sheets[selectedEventSheet]}"</span>`;
+          };
+          document.getElementById('sheetSelector').classList.remove('hidden');
+        }
+
+        updateTranslateBtn();
+      } catch (err) {
+        showError(err.message);
+        e.target.value = '';
+      }
+    });
+
+    document.getElementById('prevFile').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        hideError();
+        const result = await parseFile(file);
+        const data = Array.isArray(result) ? result : result.data[result.sheets[0]];
+
+        prevData = data;
+        document.getElementById('prevStatus').innerHTML =
+          `<span class="status-text">✓ ${data.length} translations loaded</span>`;
+      } catch (err) {
+        showError(err.message);
+        e.target.value = '';
+      }
+    });
+
+    // ==================== TRANSLATION ====================
+    function buildInstructionPrompt() {
+      let glossaryText = '';
+      if (glossaryData) {
+        glossaryText = glossaryData
+          .map((row) => {
+            if (row.length >= 2) {
+              return `${row[0]} → ${row[1]}`;
+            }
+            return '';
+          })
+          .filter(Boolean)
+          .join('\n');
+      }
+
+      let prevTransText = '';
+      if (prevData) {
+        prevTransText = prevData
+          .map((row) => {
+            if (row.length >= 2) {
+              return `Source: ${row[0]} | Previous: ${row[1]}`;
+            }
+            return '';
+          })
+          .filter(Boolean)
+          .join('\n');
+      }
+
+      return `You are a professional game localization translator specializing in Chinese to Vietnamese translation.
+
+GLOSSARY (Chinese → Vietnamese approved terms):
+${glossaryText || 'No glossary provided'}
+
+PREVIOUS TRANSLATIONS (for reference/consistency):
+${prevTransText || 'No previous translations'}
+
+RULES:
+- ALWAYS check the glossary first before translating any term
+- If a term exists in the glossary, use EXACTLY that translation
+- If NOT in glossary, translate naturally
+- Preserve all placeholders: {player_name}, %d, <br>, [item], etc.
+- Do not translate proper nouns unless in glossary
+- Maintain tone: epic/dramatic for stories, casual for daily quests
+- Review sentences to match Vietnamese's structure
+
+OUTPUT:
+Return ONLY a JSON array with this structure, no other text:
+[
+  {
+    "source": "Chinese text",
+    "translation": "Vietnamese translation",
+    "notes": "any flags or notes"
+  }
+]`;
+    }
+
+    document.getElementById('translateBtn').addEventListener('click', async () => {
+      const apiKey = prompt('Enter your Anthropic API key (sk-ant-...):');
+      if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+        showError('Invalid API key format');
+        return;
+      }
+
+      if (!eventData) {
+        showError('Please upload event content first');
+        return;
+      }
+
+      const btn = document.getElementById('translateBtn');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner">⌛</span>Translating...';
+
+      try {
+        hideError();
+        const allTranslations = [];
+        const batchSize = 20;
+
+        for (let i = 0; i < eventData.length; i += batchSize) {
+          const batch = eventData.slice(i, i + batchSize);
+          const batchText = batch.map((row) => row[0]).join('\n---\n');
+
+          const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 2000,
+              system: buildInstructionPrompt(),
+              messages: [
+                {
+                  role: 'user',
+                  content: `Translate these game event lines:\n\n${batchText}`,
+                },
+              ],
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`API Error: ${errorData.error?.message || 'Unknown error'}`);
+          }
+
+          const data = await response.json();
+          const content = data.content[0]?.text || '';
+
+          try {
+            const cleanContent = content.replace(/```json|```/g, '').trim();
+            const batchResults = JSON.parse(cleanContent);
+            allTranslations.push(...batchResults);
+          } catch (parseErr) {
+            throw new Error(`Failed to parse response`);
+          }
+        }
+
+        translationResults = allTranslations;
+        displayResults(allTranslations);
+        showSuccess(`Successfully translated ${allTranslations.length} items`);
+        document.getElementById('downloadBtn').disabled = false;
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        updateTranslateBtn();
+      }
+    });
+
+    // ==================== DISPLAY & EXPORT ====================
+    function displayResults(results) {
+      const section = document.getElementById('resultsSection');
+      const tbody = document.getElementById('resultsBody');
+      const count = document.getElementById('resultCount');
+
+      tbody.innerHTML = results
+        .map(
+          (item, idx) => `
+        <tr>
+          <td class="col-num">${idx + 1}</td>
+          <td class="col-source">${escapeHtml(item.source)}</td>
+          <td class="col-translation">${escapeHtml(item.translation)}</td>
+          <td>${escapeHtml(item.notes || '')}</td>
+        </tr>
+      `
+        )
+        .join('');
+
+      count.textContent = results.length;
+      section.classList.remove('hidden');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      if (!translationResults || translationResults.length === 0) {
+        showError('No translations to export');
+        return;
+      }
+
+      try {
+        let csv = '#,Source (ZH),Vietnamese,Notes\n';
+        translationResults.forEach((item, idx) => {
+          const source = `"${item.source.replace(/"/g, '""')}"`;
+          const trans = `"${item.translation.replace(/"/g, '""')}"`;
+          const notes = `"${(item.notes || '').replace(/"/g, '""')}"`;
+          csv += `${idx + 1},${source},${trans},${notes}\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = 'Event_Translation.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+
+        showSuccess('CSV file downloaded successfully');
+      } catch (err) {
+        showError(`Export failed: ${err.message}`);
+      }
+    });
+  </script>
+</body>
+</html>
